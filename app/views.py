@@ -35,6 +35,7 @@ def index():
 @app.route('/<referrer>/api/v1/accounts', methods=['POST'])
 def tapbasic(referrer):
     # test is request has 'account' key
+    print('account request', request.json)
     if not request.json or 'account' not in request.json:
         abort(400)
     account = request.json.get('account', {})
@@ -68,8 +69,10 @@ def tapbasic(referrer):
         return api_error("Only cheap names allowed!")
 
     # This is not really needed but added to keep API-compatibility with Rails Faucet
+    print('call to account.update({id, None})')
     account.update({"id": None})
 
+    print('initialize BitShares', config.witness_url, config.nobroadcast, config.wif)
     bitshares = BitShares(
         config.witness_url,
         nobroadcast=config.nobroadcast,
@@ -77,6 +80,7 @@ def tapbasic(referrer):
     )
 
     # See if the account to register already exists
+    print('check if account exists')
     if not is_test_account(account["name"]):
         try:
             Account(account["name"], bitshares_instance=bitshares)
@@ -85,6 +89,7 @@ def tapbasic(referrer):
             pass
 
     # Registrar
+    print('register account')
     registrar = account.get("registrar", config.registrar) or config.registrar
     try:
         registrar = Account(registrar, bitshares_instance=bitshares)
@@ -92,6 +97,7 @@ def tapbasic(referrer):
         return api_error("Unknown registrar: %s" % registrar)
 
     # Referrer
+    print('referrer')
     referrer = account.get("referrer", config.default_referrer) or config.default_referrer
     try:
         referrer = Account(referrer, bitshares_instance=bitshares)
@@ -100,12 +106,14 @@ def tapbasic(referrer):
     referrer_percent = account.get("referrer_percent", config.referrer_percent)
 
     # Make sure to not broadcast this testing account
+    print('check if broadcast')
     if not bitshares.nobroadcast:
         if is_test_account(account["name"]):
             bitshares.nobroadcast = True
         else:
             bitshares.nobroadcast = False
 
+    print('check if email')
     if "email" in account and account["email"]:
         try:
             models.Accounts.validate_email(account["email"])
@@ -113,6 +121,7 @@ def tapbasic(referrer):
             return api_error(str(e))
 
     # Create new account
+    print('create account')
     try:
         tx = bitshares.create_account(
             account["name"],
@@ -132,6 +141,7 @@ def tapbasic(referrer):
         log.error(traceback.format_exc())
         return api_error(str(e))
 
+    print('add to models.Accounts')
     if not is_test_account(account["name"]):
         models.Accounts(
             account=account["name"],
@@ -147,6 +157,7 @@ def tapbasic(referrer):
         "memo_key": account["memo_key"],
         "referrer": referrer["name"]
     }}
+    print('reply', reply)
 
     if is_test_account(account["name"]):
         tx.pop("signatures", None)

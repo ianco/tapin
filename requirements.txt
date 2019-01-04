@@ -1,5 +1,6 @@
 # git repos
-bitshares
+#bitshares
+file:///home/osboxes/Projects/python-bitshares#egg=bitshares
 pyyaml
 click
 uwsgi
